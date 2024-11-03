@@ -173,14 +173,40 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
+# Create an ED25519 key pair
+resource "tls_private_key" "abz_homework_key" {
+  algorithm = "RSA"
+  rsa_bits  = "2048"
+}
+
+resource "aws_key_pair" "abz_homework_keypair" {
+  key_name   = "abz-homework-keypair"
+  public_key = tls_private_key.abz_homework_key.public_key_openssh
+}
+
+# Export the private key to a local file
+resource "local_file" "private_key" {
+  content  = tls_private_key.abz_homework_key.private_key_pem
+  filename = "${path.module}/abz_homework_key.pem"
+  file_permission = "0600" # Ensure only the user can read this key file
+}
+
+# Export the public key to a local file
+resource "local_file" "public_key" {
+  content  = tls_private_key.abz_homework_key.public_key_openssh
+  filename = "${path.module}/abz_homework_key.pub"
+}
+
 
 # EC2 Instance
 resource "aws_instance" "abz_homework_ec2" {
-  ami           = data.aws_ami.amazon_linux.id
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.abz_homework_public_subnet_1.id
+  ami                    = data.aws_ami.amazon_linux.id
+  instance_type          = "t2.micro"
+  subnet_id              = aws_subnet.abz_homework_public_subnet_1.id
   vpc_security_group_ids = [aws_security_group.abz_homework_ec2_sg.id]
-  iam_instance_profile = aws_iam_instance_profile.abz_homework_ssm_profile.name
+  iam_instance_profile   = aws_iam_instance_profile.abz_homework_ssm_profile.name
+  associate_public_ip_address = true  
+  key_name               = aws_key_pair.abz_homework_keypair.key_name
   tags = {
     Name = "abz-homework-ec2"
   }
@@ -261,3 +287,4 @@ resource "aws_iam_instance_profile" "abz_homework_ssm_profile" {
   name = "abz-homework-ssm-profile"
   role = aws_iam_role.abz_homework_ssm_role.name
 }
+
