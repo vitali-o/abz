@@ -6,20 +6,6 @@ output "rds_endpoint" {
   value = aws_db_instance.abz_homework_rds.endpoint
 }
 
-output "ec2_instance_id" {
-  value = aws_instance.abz_homework_ec2.id
-}
-
-output "ec2_public_ip" {
-  value = aws_instance.abz_homework_ec2.public_ip
-  description = "Public IP address of the EC2 instance"
-}
-
-output "ec2_public_dns" {
-  value = aws_instance.abz_homework_ec2.public_dns
-  description = "Public DNS of the EC2 instance"
-}
-
 output "redis_endpoint" {
   value = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].address
 }
@@ -27,6 +13,30 @@ output "redis_endpoint" {
 output "redis_port" {
   value = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].port
 }
+
+output "alb_dns" {
+  value       = aws_lb.abz_homework_alb.dns_name
+  description = "Public DNS name of the ALB"
+}
+
+output "alb_ip" {
+  value       = aws_lb.abz_homework_alb.ip_address_type
+  description = "Public IP address of the ALB (if IPv4 only)"
+}
+
+output "ec2_instance_id" {
+  value = aws_instance.abz_homework_ec2.id
+}
+
+#output "ec2_public_ip" {
+#  value = aws_instance.abz_homework_ec2.public_ip
+#  description = "Public IP address of the EC2 instance"
+#}
+
+#output "ec2_public_dns" {
+#  value = aws_instance.abz_homework_ec2.public_dns
+#  description = "Public DNS of the EC2 instance"
+#}
 
 
 #output "private_key_pem" {

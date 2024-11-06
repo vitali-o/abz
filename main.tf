@@ -77,7 +77,7 @@ resource "aws_route_table" "abz_homework_public_rt" {
 
 # NAT Gateway for private subnet Internet access
 resource "aws_eip" "abz_homework_nat_eip" {
-  vpc = true
+ domain = "vpc"
 }
 
 resource "aws_nat_gateway" "abz_homework_nat_gw" {
@@ -281,29 +281,29 @@ data "aws_ami" "amazon_linux" {
 }
 
 # Create an ED25519 key pair
-resource "tls_private_key" "abz_homework_key" {
-  algorithm = "RSA"
-  rsa_bits  = "2048"
-}
+#resource "tls_private_key" "abz_homework_key" {
+#  algorithm = "RSA"
+#  rsa_bits  = "2048"
+#}
 
 
-resource "aws_key_pair" "abz_homework_keypair" {
-  key_name   = "abz-homework-keypair"
-  public_key = tls_private_key.abz_homework_key.public_key_openssh
-}
+#resource "aws_key_pair" "abz_homework_keypair" {
+#  key_name   = "abz-homework-keypair"
+#  public_key = tls_private_key.abz_homework_key.public_key_openssh
+#}
 
 # Export the private key to a local file
-resource "local_file" "private_key" {
-  content  = tls_private_key.abz_homework_key.private_key_pem
-  filename = "${path.module}/abz_homework_key.pem"
-  file_permission = "0600" # Ensure only the user can read this key file
-}
+#resource "local_file" "private_key" {
+#  content  = tls_private_key.abz_homework_key.private_key_pem
+#  filename = "${path.module}/abz_homework_key.pem"
+#  file_permission = "0600" # Ensure only the user can read this key file
+#}
 
 # Export the public key to a local file
-resource "local_file" "public_key" {
-  content  = tls_private_key.abz_homework_key.public_key_openssh
-  filename = "${path.module}/abz_homework_key.pub"
-}
+#resource "local_file" "public_key" {
+#  content  = tls_private_key.abz_homework_key.public_key_openssh
+#  filename = "${path.module}/abz_homework_key.pub"
+#}
 
 # IAM Role for SSM access
 resource "aws_iam_role" "abz_homework_ssm_role" {
@@ -340,7 +340,7 @@ resource "aws_instance" "abz_homework_ec2" {
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.abz_homework_private_subnet_1.id
   vpc_security_group_ids = [aws_security_group.abz_homework_ec2_sg.id]
-  key_name               = aws_key_pair.abz_homework_keypair.key_name
+  #key_name               = aws_key_pair.abz_homework_keypair.key_name
   iam_instance_profile   = aws_iam_instance_profile.abz_homework_ssm_instance_profile.name
 
   tags = {
@@ -367,15 +367,15 @@ resource "aws_ssm_document" "wordpress_setup" {
         action = "aws:runShellScript"
         name   = "InstallWordPress"
         inputs = {
-          runCommand = templatefile("${path.module}/wordpress_setup.sh.tpl", {
+          runCommand = split("\n",templatefile("${path.module}/wordpress_setup.sh", {
             db_name         = "abzwordpress",
             db_user         = "abzwordpress",
             db_password     = var.db_password,
             db_host         = aws_db_instance.abz_homework_rds.endpoint,
-            site_url        = aws_instance.abz_homework_ec2.public_dns,
+            site_url        = aws_lb.abz_homework_alb.dns_name,
             admin_password  = var.wp_admin_password,
             redis_host      = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].address
-          })
+          }))
         }
       }
     ]
@@ -391,13 +391,6 @@ resource "aws_ssm_association" "wordpress_setup_association" {
     values = [aws_instance.abz_homework_ec2.id]
   }
 }
-
-# Create Elastic IP
-resource "aws_eip" "abz_homework_eip" {
-  instance = aws_instance.abz_homework_ec2.id
-  associate_with_private_ip = aws_instance.abz_homework_ec2.private_ip
-}
-
 
 # Security Group for ElastiCache Redis
 resource "aws_security_group" "abz_homework_redis_sg" {
