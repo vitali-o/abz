@@ -192,12 +192,6 @@ resource "aws_lb_listener" "abz_homework_listener" {
 resource "aws_security_group" "abz_homework_ec2_sg" {
   vpc_id = aws_vpc.abz_homework_vpc.id
   ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # SSH access (consider limiting to your IP)
-  }
-  ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -373,7 +367,7 @@ resource "aws_ssm_document" "wordpress_setup" {
             db_password     = var.db_password,
             db_host         = aws_db_instance.abz_homework_rds.endpoint,
             site_url        = aws_lb.abz_homework_alb.dns_name,
-            admin_password  = var.wp_admin_password,
+            admin_password  = var.wp_site_url,
             redis_host      = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].address
           }))
         }
