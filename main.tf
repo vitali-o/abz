@@ -287,4 +287,3 @@ resource "aws_iam_instance_profile" "abz_homework_ssm_profile" {
   name = "abz-homework-ssm-profile"
   role = aws_iam_role.abz_homework_ssm_role.name
 }
-

@@ -1,5 +1,5 @@
 variable "aws_access_key" {
-  description = "AWS Access Key"
+  description = "AWS Access key"
   type        = string
   sensitive   = true
 }
