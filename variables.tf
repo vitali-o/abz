@@ -15,3 +15,9 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "wp_admin_password" {
+  description = "The password for the WP abzwordpress user"
+  type        = string
+  sensitive   = true
+}

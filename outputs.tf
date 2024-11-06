@@ -28,7 +28,7 @@ output "redis_port" {
   value = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].port
 }
 
-#
+
 #output "private_key_pem" {
 #  value     = tls_private_key.abz_homework_key.private_key_pem
 #  sensitive = true
