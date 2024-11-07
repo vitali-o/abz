@@ -75,7 +75,32 @@ resource "aws_route_table" "abz_homework_public_rt" {
   }
 }
 
-# Route Table Association
+# NAT Gateway for private subnet Internet access
+resource "aws_eip" "abz_homework_nat_eip" {
+ domain = "vpc"
+}
+
+resource "aws_nat_gateway" "abz_homework_nat_gw" {
+  allocation_id = aws_eip.abz_homework_nat_eip.id
+  subnet_id     = aws_subnet.abz_homework_public_subnet_1.id
+  tags = {
+    Name = "abz-homework-nat-gw"
+  }
+}
+
+# Private Route Table for private subnets with NAT Gateway
+resource "aws_route_table" "abz_homework_private_rt" {
+  vpc_id = aws_vpc.abz_homework_vpc.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.abz_homework_nat_gw.id
+  }
+  tags = {
+    Name = "abz-homework-private-rt"
+  }
+}
+
+# Route Table Associations
 resource "aws_route_table_association" "public_subnet_1_rt_association" {
   subnet_id      = aws_subnet.abz_homework_public_subnet_1.id
   route_table_id = aws_route_table.abz_homework_public_rt.id
@@ -86,15 +111,86 @@ resource "aws_route_table_association" "public_subnet_2_rt_association" {
   route_table_id = aws_route_table.abz_homework_public_rt.id
 }
 
+resource "aws_route_table_association" "private_subnet_1_rt_association" {
+  subnet_id      = aws_subnet.abz_homework_private_subnet_1.id
+  route_table_id = aws_route_table.abz_homework_private_rt.id
+}
+
+resource "aws_route_table_association" "private_subnet_2_rt_association" {
+  subnet_id      = aws_subnet.abz_homework_private_subnet_2.id
+  route_table_id = aws_route_table.abz_homework_private_rt.id
+}
+
+# Application Load Balancer
+resource "aws_lb" "abz_homework_alb" {
+  name               = "abz-homework-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.abz_homework_alb_sg.id]
+  subnets            = [
+    aws_subnet.abz_homework_public_subnet_1.id,
+    aws_subnet.abz_homework_public_subnet_2.id
+  ]
+  tags = {
+    Name = "abz-homework-alb"
+  }
+}
+
+# Security Group for ALB
+resource "aws_security_group" "abz_homework_alb_sg" {
+  vpc_id = aws_vpc.abz_homework_vpc.id
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = {
+    Name = "abz-homework-alb-sg"
+  }
+}
+
+# Target Group for ALB
+resource "aws_lb_target_group" "abz_homework_tg" {
+  name     = "abz-homework-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.abz_homework_vpc.id
+  health_check {
+    path = "/"
+    port = "traffic-port"
+  }
+  tags = {
+    Name = "abz-homework-tg"
+  }
+}
+
+# ALB Listener
+resource "aws_lb_listener" "abz_homework_listener" {
+  load_balancer_arn = aws_lb.abz_homework_alb.arn
+  port              = 80
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.abz_homework_tg.arn
+  }
+}
+
 # Security Group for EC2
 resource "aws_security_group" "abz_homework_ec2_sg" {
   vpc_id = aws_vpc.abz_homework_vpc.id
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # SSH access (consider limiting to your IP)
-  }
   ingress {
     from_port   = 80
     to_port     = 80
@@ -179,29 +275,29 @@ data "aws_ami" "amazon_linux" {
 }
 
 # Create an ED25519 key pair
-resource "tls_private_key" "abz_homework_key" {
-  algorithm = "RSA"
-  rsa_bits  = "2048"
-}
+#resource "tls_private_key" "abz_homework_key" {
+#  algorithm = "RSA"
+#  rsa_bits  = "2048"
+#}
 
 
-resource "aws_key_pair" "abz_homework_keypair" {
-  key_name   = "abz-homework-keypair"
-  public_key = tls_private_key.abz_homework_key.public_key_openssh
-}
+#resource "aws_key_pair" "abz_homework_keypair" {
+#  key_name   = "abz-homework-keypair"
+#  public_key = tls_private_key.abz_homework_key.public_key_openssh
+#}
 
 # Export the private key to a local file
-resource "local_file" "private_key" {
-  content  = tls_private_key.abz_homework_key.private_key_pem
-  filename = "${path.module}/abz_homework_key.pem"
-  file_permission = "0600" # Ensure only the user can read this key file
-}
+#resource "local_file" "private_key" {
+#  content  = tls_private_key.abz_homework_key.private_key_pem
+#  filename = "${path.module}/abz_homework_key.pem"
+#  file_permission = "0600" # Ensure only the user can read this key file
+#}
 
 # Export the public key to a local file
-resource "local_file" "public_key" {
-  content  = tls_private_key.abz_homework_key.public_key_openssh
-  filename = "${path.module}/abz_homework_key.pub"
-}
+#resource "local_file" "public_key" {
+#  content  = tls_private_key.abz_homework_key.public_key_openssh
+#  filename = "${path.module}/abz_homework_key.pub"
+#}
 
 # IAM Role for SSM access
 resource "aws_iam_role" "abz_homework_ssm_role" {
@@ -236,15 +332,21 @@ resource "aws_iam_instance_profile" "abz_homework_ssm_instance_profile" {
 resource "aws_instance" "abz_homework_ec2" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.abz_homework_public_subnet_1.id
+  subnet_id              = aws_subnet.abz_homework_private_subnet_1.id
   vpc_security_group_ids = [aws_security_group.abz_homework_ec2_sg.id]
-  associate_public_ip_address = true
-  key_name               = aws_key_pair.abz_homework_keypair.key_name
+  #key_name               = aws_key_pair.abz_homework_keypair.key_name
   iam_instance_profile   = aws_iam_instance_profile.abz_homework_ssm_instance_profile.name
 
   tags = {
     Name = "abz-homework-ec2"
   }
+}
+
+# Register EC2 Instance with Target Group
+resource "aws_lb_target_group_attachment" "abz_homework_ec2_tg_attachment" {
+  target_group_arn = aws_lb_target_group.abz_homework_tg.arn
+  target_id        = aws_instance.abz_homework_ec2.id
+  port             = 80
 }
 
 # SSM Document for WordPress installation
@@ -259,15 +361,15 @@ resource "aws_ssm_document" "wordpress_setup" {
         action = "aws:runShellScript"
         name   = "InstallWordPress"
         inputs = {
-          runCommand = templatefile("${path.module}/wordpress_setup.sh.tpl", {
+          runCommand = split("\n",templatefile("${path.module}/wordpress_setup.sh", {
             db_name         = "abzwordpress",
             db_user         = "abzwordpress",
             db_password     = var.db_password,
             db_host         = aws_db_instance.abz_homework_rds.endpoint,
-            site_url        = aws_instance.abz_homework_ec2.public_dns,
-            admin_password  = var.wp_admin_password,
+            site_url        = aws_lb.abz_homework_alb.dns_name,
+            admin_password  = var.wp_site_url,
             redis_host      = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].address
-          })
+          }))
         }
       }
     ]
@@ -283,13 +385,6 @@ resource "aws_ssm_association" "wordpress_setup_association" {
     values = [aws_instance.abz_homework_ec2.id]
   }
 }
-
-# Create Elastic IP
-resource "aws_eip" "abz_homework_eip" {
-  instance = aws_instance.abz_homework_ec2.id
-  associate_with_private_ip = aws_instance.abz_homework_ec2.private_ip
-}
-
 
 # Security Group for ElastiCache Redis
 resource "aws_security_group" "abz_homework_redis_sg" {

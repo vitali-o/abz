@@ -21,3 +21,9 @@ variable "wp_admin_password" {
   type        = string
   sensitive   = true
 }
+
+variable "wp_site_url" {
+  description = "URL for WordPress installation"
+  type        = string
+  sensitive   = true
+}
