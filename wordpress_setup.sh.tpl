@@ -27,13 +27,10 @@ sudo chown -R apache:apache /var/www/html
 sudo find /var/www/html -type d -exec chmod 755 {} \;
 sudo find /var/www/html -type f -exec chmod 644 {} \;
 
-# Конфигурация WordPress с использованием переменных окружения
-sudo -u apache wp core config \
-  --dbname='${db_name}' \
-  --dbuser='${db_user}' \
-  --dbpass='${db_password}' \
-  --dbhost='${db_host}' \
-  --path='/var/www/html'
+# Генерация wp-config.php
+sudo -u apache cat <<'EOCONFIG' > /var/www/html/wp-config.php
+${wp_config_content}
+EOCONFIG
 
 # Установка WordPress с начальной конфигурацией
 sudo -u apache wp core install \
@@ -49,12 +46,6 @@ sudo -u apache wp user create viewer viewer@example.com --role=subscriber --user
 
 # Установка и активация плагина Redis
 sudo -u apache wp plugin install https://github.com/rhubarbgroup/redis-cache/archive/refs/heads/develop.zip --activate
-
-# Конфигурация Redis
-sudo -u apache wp config set WP_REDIS_HOST '${redis_host}' --path='/var/www/html'
-sudo -u apache wp config set WP_REDIS_PORT 6379 --path='/var/www/html'
-sudo -u apache wp config set WP_REDIS_DATABASE 0 --path='/var/www/html'
-sudo -u apache wp config set WP_REDIS_PREFIX 'abz-site' --path='/var/www/html'
 sudo -u apache wp redis enable --path='/var/www/html'
 
 # Настройка Apache для правильной директории

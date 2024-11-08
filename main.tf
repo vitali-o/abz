@@ -202,6 +202,12 @@ resource "aws_security_group" "abz_homework_ec2_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"] # HTTPS access
   }
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # SSH access
+  }
   egress {
     from_port   = 0
     to_port     = 0
@@ -273,22 +279,51 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
+# Запрос к API для получения уникальных ключей и соли
+data "http" "auth_keys_and_salts" {
+  url = "https://api.wordpress.org/secret-key/1.1/salt/"
+}
+
+# Создаем содержимое wp-config.php на основе шаблона
+data "template_file" "wp_config" {
+  template = file("${path.module}/wp-config.php.tpl")
+  vars = {
+    db_name             = var.db_name
+    db_user             = var.db_user
+    db_password         = var.db_password
+    db_host             = aws_db_instance.abz_homework_rds.endpoint
+    site_url            = var.wp_site_url
+    admin_email         = var.wp_admin_email
+    admin_password      = var.wp_admin_password
+    redis_host          = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].address
+    redis_port          = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].port
+    auth_keys_and_salts = data.http.auth_keys_and_salts.response_body
+  }
+}
+
+data "template_file" "wp_setup" {
+  template = file("${path.module}/wordpress_setup.sh.tpl")
+  vars = {
+    db_name           = var.db_name
+    db_user           = var.db_user
+    db_password       = var.db_password
+    db_host           = aws_db_instance.abz_homework_rds.endpoint
+    site_url          = var.wp_site_url
+    admin_email       = var.wp_admin_email
+    admin_password    = var.wp_admin_password
+    redis_host        = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].address
+    redis_port        = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].port
+    wp_config_content = data.template_file.wp_config.rendered
+  }
+}
+
 # EC2 Instance
 resource "aws_instance" "abz_homework_ec2" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.abz_homework_private_subnet_1.id
   vpc_security_group_ids = [aws_security_group.abz_homework_ec2_sg.id]
-  user_data = templatefile("${path.module}/wordpress_setup.sh.tpl", {
-    db_name        = var.db_name
-    db_user        = var.db_user
-    db_password    = var.db_password
-    db_host        = aws_db_instance.abz_homework_rds.endpoint
-    site_url       = var.wp_site_url
-    admin_email    = var.wp_admin_email
-    admin_password = var.wp_admin_password
-    redis_host     = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].address
-  })
+  user_data              = data.template_file.wp_setup.rendered
   tags = {
     Name = "abz-homework-ec2"
   }

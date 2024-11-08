@@ -22,3 +22,7 @@ output "alb_dns" {
 output "ec2_instance_id" {
   value = aws_instance.abz_homework_ec2.id
 }
+
+output "wp_auth_keys_and_salts" {
+  value = data.http.auth_keys_and_salts.response_body
+}
