@@ -4,10 +4,9 @@ provider "aws" {
   secret_key = var.aws_secret_key
 }
 
-
 # VPC
 resource "aws_vpc" "abz_homework_vpc" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
   tags = {
@@ -17,9 +16,9 @@ resource "aws_vpc" "abz_homework_vpc" {
 
 # Public Subnets
 resource "aws_subnet" "abz_homework_public_subnet_1" {
-  vpc_id            = aws_vpc.abz_homework_vpc.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-east-1a"
+  vpc_id                  = aws_vpc.abz_homework_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "us-east-1a"
   map_public_ip_on_launch = true
   tags = {
     Name = "abz-homework-public-subnet-1"
@@ -27,9 +26,9 @@ resource "aws_subnet" "abz_homework_public_subnet_1" {
 }
 
 resource "aws_subnet" "abz_homework_public_subnet_2" {
-  vpc_id            = aws_vpc.abz_homework_vpc.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = "us-east-1b"
+  vpc_id                  = aws_vpc.abz_homework_vpc.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = "us-east-1b"
   map_public_ip_on_launch = true
   tags = {
     Name = "abz-homework-public-subnet-2"
@@ -77,7 +76,7 @@ resource "aws_route_table" "abz_homework_public_rt" {
 
 # NAT Gateway for private subnet Internet access
 resource "aws_eip" "abz_homework_nat_eip" {
- domain = "vpc"
+  domain = "vpc"
 }
 
 resource "aws_nat_gateway" "abz_homework_nat_gw" {
@@ -92,7 +91,7 @@ resource "aws_nat_gateway" "abz_homework_nat_gw" {
 resource "aws_route_table" "abz_homework_private_rt" {
   vpc_id = aws_vpc.abz_homework_vpc.id
   route {
-    cidr_block = "0.0.0.0/0"
+    cidr_block     = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.abz_homework_nat_gw.id
   }
   tags = {
@@ -127,7 +126,7 @@ resource "aws_lb" "abz_homework_alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.abz_homework_alb_sg.id]
-  subnets            = [
+  subnets = [
     aws_subnet.abz_homework_public_subnet_1.id,
     aws_subnet.abz_homework_public_subnet_2.id
   ]
@@ -218,9 +217,9 @@ resource "aws_security_group" "abz_homework_ec2_sg" {
 resource "aws_security_group" "abz_homework_rds_sg" {
   vpc_id = aws_vpc.abz_homework_vpc.id
   ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
     security_groups = [aws_security_group.abz_homework_ec2_sg.id]
   }
   egress {
@@ -236,24 +235,24 @@ resource "aws_security_group" "abz_homework_rds_sg" {
 
 # RDS Instance
 resource "aws_db_instance" "abz_homework_rds" {
-  allocated_storage    = 20
-  engine               = "mysql"
-  identifier           = "abz-homework-rds"
-  instance_class       = "db.t4g.micro"
-  db_name	             = "abzwordpress"
-  username             = "abzwordpress"
-  password             = var.db_password
+  allocated_storage      = 20
+  engine                 = "mysql"
+  identifier             = "abz-homework-rds"
+  instance_class         = "db.t4g.micro"
+  db_name                = var.db_name
+  username               = var.db_user
+  password               = var.db_password
   vpc_security_group_ids = [aws_security_group.abz_homework_rds_sg.id]
-  skip_final_snapshot  = true
-  publicly_accessible  = false
-  db_subnet_group_name = aws_db_subnet_group.abz_homework_db_subnet_group.name
+  skip_final_snapshot    = true
+  publicly_accessible    = false
+  db_subnet_group_name   = aws_db_subnet_group.abz_homework_db_subnet_group.name
   tags = {
     Name = "abz-homework-rds"
   }
 }
 
 resource "aws_db_subnet_group" "abz_homework_db_subnet_group" {
-  name       = "abz-homework-db-subnet-group"
+  name = "abz-homework-db-subnet-group"
   subnet_ids = [
     aws_subnet.abz_homework_private_subnet_1.id,
     aws_subnet.abz_homework_private_subnet_2.id
@@ -274,69 +273,22 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
-# Create an ED25519 key pair
-#resource "tls_private_key" "abz_homework_key" {
-#  algorithm = "RSA"
-#  rsa_bits  = "2048"
-#}
-
-
-#resource "aws_key_pair" "abz_homework_keypair" {
-#  key_name   = "abz-homework-keypair"
-#  public_key = tls_private_key.abz_homework_key.public_key_openssh
-#}
-
-# Export the private key to a local file
-#resource "local_file" "private_key" {
-#  content  = tls_private_key.abz_homework_key.private_key_pem
-#  filename = "${path.module}/abz_homework_key.pem"
-#  file_permission = "0600" # Ensure only the user can read this key file
-#}
-
-# Export the public key to a local file
-#resource "local_file" "public_key" {
-#  content  = tls_private_key.abz_homework_key.public_key_openssh
-#  filename = "${path.module}/abz_homework_key.pub"
-#}
-
-# IAM Role for SSM access
-resource "aws_iam_role" "abz_homework_ssm_role" {
-  name = "SSMAccessRole"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        },
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "abz_homework_ssm_role_policy" {
-  role       = aws_iam_role.abz_homework_ssm_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-# EC2 Instance Profile
-resource "aws_iam_instance_profile" "abz_homework_ssm_instance_profile" {
-  name = "SSMInstanceProfile"
-  role = aws_iam_role.abz_homework_ssm_role.name
-}
-
-
 # EC2 Instance
 resource "aws_instance" "abz_homework_ec2" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.abz_homework_private_subnet_1.id
   vpc_security_group_ids = [aws_security_group.abz_homework_ec2_sg.id]
-  #key_name               = aws_key_pair.abz_homework_keypair.key_name
-  iam_instance_profile   = aws_iam_instance_profile.abz_homework_ssm_instance_profile.name
-
+  user_data = templatefile("${path.module}/wordpress_setup.sh.tpl", {
+    db_name        = var.db_name
+    db_user        = var.db_user
+    db_password    = var.db_password
+    db_host        = aws_db_instance.abz_homework_rds.endpoint
+    site_url       = var.wp_site_url
+    admin_email    = var.wp_admin_email
+    admin_password = var.wp_admin_password
+    redis_host     = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].address
+  })
   tags = {
     Name = "abz-homework-ec2"
   }
@@ -349,50 +301,13 @@ resource "aws_lb_target_group_attachment" "abz_homework_ec2_tg_attachment" {
   port             = 80
 }
 
-# SSM Document for WordPress installation
-resource "aws_ssm_document" "wordpress_setup" {
-  name          = "WordPressSetupDocument"
-  document_type = "Command"
-  content       = jsonencode({
-    schemaVersion = "2.2",
-    description   = "Setup WordPress on EC2 instance",
-    mainSteps     = [
-      {
-        action = "aws:runShellScript"
-        name   = "InstallWordPress"
-        inputs = {
-          runCommand = split("\n",templatefile("${path.module}/wordpress_setup.sh", {
-            db_name         = "abzwordpress",
-            db_user         = "abzwordpress",
-            db_password     = var.db_password,
-            db_host         = aws_db_instance.abz_homework_rds.endpoint,
-            site_url        = aws_lb.abz_homework_alb.dns_name,
-            admin_password  = var.wp_site_url,
-            redis_host      = aws_elasticache_cluster.abz_homework_redis.cache_nodes[0].address
-          }))
-        }
-      }
-    ]
-  })
-}
-
-# SSM Association to run the script on the EC2 instance
-resource "aws_ssm_association" "wordpress_setup_association" {
-  name = aws_ssm_document.wordpress_setup.name
-
-  targets {
-    key    = "InstanceIds"
-    values = [aws_instance.abz_homework_ec2.id]
-  }
-}
-
 # Security Group for ElastiCache Redis
 resource "aws_security_group" "abz_homework_redis_sg" {
   vpc_id = aws_vpc.abz_homework_vpc.id
   ingress {
-    from_port   = 6379
-    to_port     = 6379
-    protocol    = "tcp"
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
     security_groups = [aws_security_group.abz_homework_ec2_sg.id]
   }
   egress {
@@ -408,7 +323,7 @@ resource "aws_security_group" "abz_homework_redis_sg" {
 
 # Subnet Group for ElastiCache Redis
 resource "aws_elasticache_subnet_group" "abz_homework_redis_subnet_group" {
-  name       = "abz-homework-redis-subnet-group"
+  name = "abz-homework-redis-subnet-group"
   subnet_ids = [
     aws_subnet.abz_homework_private_subnet_1.id,
     aws_subnet.abz_homework_private_subnet_2.id
