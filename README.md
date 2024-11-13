@@ -83,7 +83,7 @@ For WordPress configuration, adjust the following variables as needed:
     ```
 
 - **Infrastructure Settings**:
-  Customize infrastructure configurations such as VPC, subnet CIDR blocks, security group rules, and EC2 instance quantity. Adjustments can be made in `variables.tf` or overridden using the above methods.
+  Customize infrastructure configurations such as VPC, subnet CIDR blocks (and quantity), security group rules, and EC2 instance quantity. Adjustments can be made in `variables.tf` or overridden using the above methods.
 
 ### Running the Project
 
