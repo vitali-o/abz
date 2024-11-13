@@ -40,7 +40,7 @@ variable "ec2_ingress_ports" {
 variable "instance_count" {
   description = "EC2 instances count"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 # RDS settings:
