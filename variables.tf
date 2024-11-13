@@ -84,3 +84,9 @@ variable "wp_site_url" {
   type        = string
   default     = "wp.abzhomework.work.gd"
 }
+
+variable "wp_site_title" {
+  description = "WordPress site title"
+  type        = string
+  default     = "abz test assignment"
+}

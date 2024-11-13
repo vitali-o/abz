@@ -22,6 +22,7 @@ data "template_file" "wp_config" {
     db_password         = var.db_password
     db_host             = aws_db_instance.abz_rds.endpoint
     site_url            = var.wp_site_url
+    site_title          = var.wp_site_title
     admin_email         = var.wp_admin_email
     admin_password      = var.wp_admin_password
     redis_host          = aws_elasticache_cluster.abz_redis.cache_nodes[0].address
