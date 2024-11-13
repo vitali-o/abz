@@ -1,121 +1,120 @@
-# abz test assignment
+# ABZ Test Assignment
 
-This Terraform project automates the deployment of a small AWS infrastructure and automatically install latest WordPress with necessary dependencies and configurations. The setup includes infrastructure provisioning, user data customization for WordPress setup, and variable configurations to control deployment settings.
+This Terraform project automates the deployment of a WordPress environment, handling all necessary infrastructure provisioning, dependencies, and configurations. This includes customizable user data for WordPress setup and variable configurations to tailor deployment settings.
 
 ## Prerequisites
 
-1. **Terraform**: Ensure Terraform is installed. [Install Terraform](https://developer.hashicorp.com/terraform/downloads)
-2. **Cloud Provider Account**: Set up and configure credentials for the specified cloud provider in `provider.tf`.
+1. **Terraform**: Ensure Terraform is installed. [Download Terraform](https://developer.hashicorp.com/terraform/downloads)
+2. **AWS Cloud Provider Account**: Set up an AWS user account with full access to EC2, RDS, ElastiCache, and Elastic Load Balancing. Obtain your `AWS_SECRET_KEY` and `AWS_ACCESS_KEY_ID`.
 
 ## Getting Started
 
-### Cloning the Repository
-
-Clone this repository to your local machine:
+Clone the repository to your local machine:
 
 ```bash
 git clone https://github.com/vitali-o/abz.git
 cd abz
 ```
 
+Set environment variables for your AWS credentials:
+
+```bash
+export TF_VAR_aws_access_key='your_aws_access_key_id'
+export TF_VAR_aws_secret_key='your_aws_secret_key'
+```
+
 ### Variable Configuration
 
-1. **Default Variable Configuration**: Variables are defined in the `variables.tf` file with default values.
-2. **Custom Variables**: To override any variable, you have the following options:
+1. **Default Variables**: Variables are defined in `variables.tf`, with descriptions and default values for easy testing. Sensitive data, such as passwords, must be set manually.
+2. **Customizing Variables**: Override any variable using the following methods (Environment Variables should be preffered for security reasons):
 
-   - **Command Line Override**: Specify variables directly in the CLI during execution:
+   - **Command Line Override**:
    
      ```bash
      terraform apply -var="variable_name=value"
      ```
 
-   - **`terraform.tfvars` File**: Create a `terraform.tfvars` file in the root directory and define your custom values:
+   - **`terraform.tfvars` File**: Create a `terraform.tfvars` file in the root directory to define custom values:
 
      ```hcl
      variable_name = "value"
      ```
 
-   - **Environment Variables**: Set environment variables prefixed with `TF_VAR_`:
+   - **Environment Variables**: Prefix variables with `TF_VAR_`:
 
      ```bash
      export TF_VAR_variable_name=value
      ```
 
+### Important Customization Options
+
+For WordPress configuration, adjust the following variables as needed:
+
+- **Database-Related Settings**:
+  - RDS database name:
+    ```bash
+    export TF_VAR_db_name='your_db_name'
+    ```
+  - RDS database admin username:
+    ```bash
+    export TF_VAR_db_user='your_db_username'
+    ```
+  - RDS database admin password:
+    ```bash
+    export TF_VAR_db_password='your_db_password'
+    ```
+
+- **WordPress-Related Settings**:
+  - WordPress admin password:
+    ```bash
+    export TF_VAR_wp_admin_password='your_admin_password'
+    ```
+  - WordPress admin email:
+    ```bash
+    export TF_VAR_wp_admin_email='your_admin_email'
+    ```
+  - Site domain name (must be owned by you):
+    ```bash
+    export TF_VAR_wp_site_url='your_site_domain'
+    ```
+  - Site title:
+    ```bash
+    export TF_VAR_wp_site_title='your_site_title'
+    ```
+
+- **Infrastructure Settings**:
+  Customize infrastructure configurations such as VPC, subnet CIDR blocks, security group rules, and EC2 instance quantity. Adjustments can be made in `variables.tf` or overridden using the above methods.
+
 ### Running the Project
 
-Initialize the Terraform project:
+1. **Initialize** the Terraform project:
 
-```bash
-terraform init
-```
+   ```bash
+   terraform init
+   ```
 
-Review the execution plan:
+2. **Review** the execution plan:
 
-```bash
-terraform plan
-```
+   ```bash
+   terraform plan
+   ```
 
-Apply the configuration to deploy resources:
+3. **Apply** the configuration to deploy resources:
 
-```bash
-terraform apply
-```
+   ```bash
+   terraform apply
+   ```
 
-After confirming, Terraform will provision the infrastructure and configure the WordPress setup automatically.
+Confirm to proceed, and Terraform will provision the infrastructure and configure the WordPress setup automatically.
 
 ### Outputs
 
-Upon successful completion, relevant output values will be displayed. Output configurations are specified in `outputs.tf`.
+On successful completion, relevant output values will be displayed as specified in `outputs.tf`. Remember to:
 
-## Customization Options
+- Save the ALB endpoint URL.
+- Update your's site DNS records by pointing the CNAME (defined by `TF_VAR_wp_site_url`) to the ALB endpoint.
 
-### Terraform Module Customizations
+## Security and Best Practices
 
-The `main.tf` file includes modules for creating infrastructure resources such as virtual machines, network settings, and security groups. You can customize these modules by modifying:
-
-- **Module Source**: Define a different module source if needed.
-- **Module Variables**: Update module input variables in `main.tf` to change aspects such as instance type, network configurations, and resource tags.
-
-### Template Files for User Data
-
-This project uses template files (`tpl`) for generating `user_data` scripts, specifically for WordPress installation and configuration.
-
-- **`wordpress_setup.sh.tpl`**: This script template installs WordPress along with necessary dependencies. You can customize this template to adjust:
-
-  - **Packages**: Add or remove packages installed during the WordPress setup.
-  - **Configuration Steps**: Modify the commands and scripts for setting up WordPress, adjusting parameters as needed.
-
-- **`wp-config.php.tpl`**: This template generates the WordPress `wp-config.php` file, including database connection settings and essential configurations.
-
-  - **Database Settings**: Adjust database host, name, user, and password if you need different settings than those specified.
-  - **Security Keys and Salts**: You can insert custom security keys for WordPress by modifying this template.
-
-Both template files can be edited directly or made dynamic by introducing additional variables in `variables.tf` for further customization.
-
-### Overriding Templates in Terraform
-
-You can use Terraform’s `templatefile` function to incorporate changes into your setup without directly modifying the original `tpl` files. Define your custom template files and use them as follows in `main.tf`:
-
-```hcl
-user_data = templatefile("${path.module}/custom_wordpress_setup.sh.tpl", {
-  variable_name = var.value
-})
-```
-
-This allows you to maintain original templates while testing or implementing custom scripts.
-
----
-
-## Additional Notes
-
-- **Cleanup**: After finishing with the deployment, run the following command to destroy all resources:
-
-  ```bash
-  terraform destroy
-  ```
-
-- **Security**: Ensure that sensitive information such as database credentials is securely stored and not hardcoded in template files.
-
---- 
-
-This `README.md` provides a comprehensive guide to getting the project up and running, customizing deployment, and extending functionality through template files.
+- **Sensitive Data Management**: For sensitive information, use secure storage options such as HashiCorp Vault or AWS Secrets Manager instead of directly defining values in variables or environment variables.
+- **Remote State Management**: For production environments, store Terraform state remotely in an S3 bucket with state locking enabled through DynamoDB. This enhances security and prevents unauthorized changes.

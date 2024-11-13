@@ -28,7 +28,7 @@ output "ec2_instance_ids" {
   value       = [for instance in aws_instance.abz_ec2 : instance.id]
 }
 
-output "wp_auth_keys_and_salts" {
-  description = "Salts and keys for WordPress installation"
-  value       = data.http.auth_keys_and_salts.response_body
-}
+#output "wp_auth_keys_and_salts" {
+#  description = "Salts and keys for WordPress installation"
+#  value       = data.http.auth_keys_and_salts.response_body
+#}
