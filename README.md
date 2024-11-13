@@ -85,8 +85,6 @@ For WordPress configuration, adjust the following variables as needed:
 - **Infrastructure Settings**:
   Customize infrastructure configurations such as VPC, subnet CIDR blocks (and quantity), security group rules, and EC2 instance quantity. Adjustments can be made in `variables.tf` or overridden using the above methods.
 
-**-------------------------------------------------------------------------**
-
 ### Running the Project
 
 1. **Initialize** the Terraform project:
@@ -121,6 +119,7 @@ On successful completion, relevant output values will be displayed as specified 
 - **Sensitive Data Management**: For sensitive information, use secure storage options such as HashiCorp Vault or AWS Secrets Manager instead of directly defining values in variables or environment variables.
 - **Remote State Management**: For production environments, store Terraform state remotely in an S3 bucket with state locking enabled through DynamoDB. This enhances security and prevents unauthorized changes.
 
+**-------------------------------------------------------------------------**
 
 ## Project Structure
 
