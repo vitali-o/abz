@@ -41,9 +41,6 @@ sudo -u apache wp core install \
   --admin_email='${admin_email}' \
   --path='/var/www/html'
 
-# Create new user with viewer role
-sudo -u apache wp user create viewer viewer@example.com --role='subscriber' --user_pass='passwd' --path='/var/www/html'
-
 # Install and enable Redis Cache plugin
 sudo -u apache wp plugin install https://github.com/rhubarbgroup/redis-cache/archive/refs/heads/develop.zip --activate
 sudo -u apache wp redis enable --path='/var/www/html'
