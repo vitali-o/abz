@@ -1,9 +1,3 @@
-provider "aws" {
-  region     = "us-east-1"
-  access_key = var.aws_access_key
-  secret_key = var.aws_secret_key
-}
-
 # VPC
 resource "aws_vpc" "abz_homework_vpc" {
   cidr_block           = "10.0.0.0/16"
@@ -14,45 +8,37 @@ resource "aws_vpc" "abz_homework_vpc" {
   }
 }
 
-# Public Subnets
-resource "aws_subnet" "abz_homework_public_subnet_1" {
+# Data source to fetch all availability zones dynamically
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+# Dynamic Public Subnets
+resource "aws_subnet" "abz_homework_public_subnets" {
+  for_each                = { for i, cidr in var.public_subnet_cidrs : i => cidr }
   vpc_id                  = aws_vpc.abz_homework_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a"
+  cidr_block              = each.value
+  availability_zone       = element(data.aws_availability_zones.available.names, each.key % length(data.aws_availability_zones.available.names))
   map_public_ip_on_launch = true
+
   tags = {
-    Name = "abz-homework-public-subnet-1"
+    Name = "abz-homework-public-subnet-${each.key + 1}"
   }
 }
 
-resource "aws_subnet" "abz_homework_public_subnet_2" {
+# Dynamic Private Subnets
+resource "aws_subnet" "abz_homework_private_subnets" {
+  for_each                = { for i, cidr in var.private_subnet_cidrs : i => cidr }
   vpc_id                  = aws_vpc.abz_homework_vpc.id
-  cidr_block              = "10.0.3.0/24"
-  availability_zone       = "us-east-1b"
-  map_public_ip_on_launch = true
+  cidr_block              = each.value
+  availability_zone       = element(data.aws_availability_zones.available.names, each.key % length(data.aws_availability_zones.available.names))
+  map_public_ip_on_launch = false
+
   tags = {
-    Name = "abz-homework-public-subnet-2"
+    Name = "abz-homework-private-subnet-${each.key + 1}"
   }
 }
 
-# Private Subnets
-resource "aws_subnet" "abz_homework_private_subnet_1" {
-  vpc_id            = aws_vpc.abz_homework_vpc.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "us-east-1a"
-  tags = {
-    Name = "abz-homework-private-subnet-1"
-  }
-}
-
-resource "aws_subnet" "abz_homework_private_subnet_2" {
-  vpc_id            = aws_vpc.abz_homework_vpc.id
-  cidr_block        = "10.0.4.0/24"
-  availability_zone = "us-east-1b"
-  tags = {
-    Name = "abz-homework-private-subnet-2"
-  }
-}
 
 # Internet Gateway
 resource "aws_internet_gateway" "abz_homework_igw" {
@@ -81,7 +67,7 @@ resource "aws_eip" "abz_homework_nat_eip" {
 
 resource "aws_nat_gateway" "abz_homework_nat_gw" {
   allocation_id = aws_eip.abz_homework_nat_eip.id
-  subnet_id     = aws_subnet.abz_homework_public_subnet_1.id
+  subnet_id     = aws_subnet.abz_homework_public_subnets[0].id
   tags = {
     Name = "abz-homework-nat-gw"
   }
@@ -99,24 +85,17 @@ resource "aws_route_table" "abz_homework_private_rt" {
   }
 }
 
-# Route Table Associations
-resource "aws_route_table_association" "public_subnet_1_rt_association" {
-  subnet_id      = aws_subnet.abz_homework_public_subnet_1.id
+# Public Route Table Associations
+resource "aws_route_table_association" "public_rt_association" {
+  for_each       = aws_subnet.abz_homework_public_subnets
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.abz_homework_public_rt.id
 }
 
-resource "aws_route_table_association" "public_subnet_2_rt_association" {
-  subnet_id      = aws_subnet.abz_homework_public_subnet_2.id
-  route_table_id = aws_route_table.abz_homework_public_rt.id
-}
-
-resource "aws_route_table_association" "private_subnet_1_rt_association" {
-  subnet_id      = aws_subnet.abz_homework_private_subnet_1.id
-  route_table_id = aws_route_table.abz_homework_private_rt.id
-}
-
-resource "aws_route_table_association" "private_subnet_2_rt_association" {
-  subnet_id      = aws_subnet.abz_homework_private_subnet_2.id
+# Private Route Table Associations
+resource "aws_route_table_association" "private_rt_association" {
+  for_each       = aws_subnet.abz_homework_private_subnets
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.abz_homework_private_rt.id
 }
 
@@ -126,10 +105,7 @@ resource "aws_lb" "abz_homework_alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.abz_homework_alb_sg.id]
-  subnets = [
-    aws_subnet.abz_homework_public_subnet_1.id,
-    aws_subnet.abz_homework_public_subnet_2.id
-  ]
+  subnets            = [for subnet in aws_subnet.abz_homework_public_subnets : subnet.id]
   tags = {
     Name = "abz-homework-alb"
   }
@@ -138,17 +114,14 @@ resource "aws_lb" "abz_homework_alb" {
 # Security Group for ALB
 resource "aws_security_group" "abz_homework_alb_sg" {
   vpc_id = aws_vpc.abz_homework_vpc.id
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  dynamic "ingress" {
+    for_each = var.alb_ingress_ports
+    content {
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
   }
   egress {
     from_port   = 0
@@ -190,23 +163,14 @@ resource "aws_lb_listener" "abz_homework_listener" {
 # Security Group for EC2
 resource "aws_security_group" "abz_homework_ec2_sg" {
   vpc_id = aws_vpc.abz_homework_vpc.id
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # HTTP access
-  }
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # HTTPS access
-  }
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # SSH access
+  dynamic "ingress" {
+    for_each = var.ec2_ingress_ports
+    content {
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
   }
   egress {
     from_port   = 0
@@ -258,11 +222,8 @@ resource "aws_db_instance" "abz_homework_rds" {
 }
 
 resource "aws_db_subnet_group" "abz_homework_db_subnet_group" {
-  name = "abz-homework-db-subnet-group"
-  subnet_ids = [
-    aws_subnet.abz_homework_private_subnet_1.id,
-    aws_subnet.abz_homework_private_subnet_2.id
-  ]
+  name       = "abz-homework-db-subnet-group"
+  subnet_ids = [for subnet in aws_subnet.abz_homework_public_subnets : subnet.id]
   tags = {
     Name = "abz-homework-db-subnet-group"
   }
@@ -279,14 +240,14 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
-# Запрос к API для получения уникальных ключей и соли
+# Get WordPress salt and keys
 data "http" "auth_keys_and_salts" {
   url = "https://api.wordpress.org/secret-key/1.1/salt/"
 }
 
-# Создаем содержимое wp-config.php на основе шаблона
+# Create wp-config.php from template
 data "template_file" "wp_config" {
-  template = file("${path.module}/wp-config.php.tpl")
+  template = file("./wp-config.php.tpl")
   vars = {
     db_name             = var.db_name
     db_user             = var.db_user
@@ -301,8 +262,9 @@ data "template_file" "wp_config" {
   }
 }
 
+# Create user_data
 data "template_file" "wp_setup" {
-  template = file("${path.module}/wordpress_setup.sh.tpl")
+  template = file("./wordpress_setup.sh.tpl")
   vars = {
     db_name           = var.db_name
     db_user           = var.db_user
@@ -317,22 +279,25 @@ data "template_file" "wp_setup" {
   }
 }
 
-# EC2 Instance
+# Dynamically create EC2 instances and place each in a different private subnet
 resource "aws_instance" "abz_homework_ec2" {
+  count                  = var.instance_count
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.abz_homework_private_subnet_1.id
+  subnet_id              = aws_subnet.abz_homework_private_subnets[count.index % length(aws_subnet.abz_homework_private_subnets)].id
   vpc_security_group_ids = [aws_security_group.abz_homework_ec2_sg.id]
   user_data              = data.template_file.wp_setup.rendered
+
   tags = {
-    Name = "abz-homework-ec2"
+    Name = "abz-homework-ec2-${count.index + 1}"
   }
 }
 
-# Register EC2 Instance with Target Group
+# Attach instances to ALB target group
 resource "aws_lb_target_group_attachment" "abz_homework_ec2_tg_attachment" {
+  for_each         = { for idx, instance in tolist(aws_instance.abz_homework_ec2) : idx => instance }
   target_group_arn = aws_lb_target_group.abz_homework_tg.arn
-  target_id        = aws_instance.abz_homework_ec2.id
+  target_id        = each.value.id
   port             = 80
 }
 
@@ -358,11 +323,8 @@ resource "aws_security_group" "abz_homework_redis_sg" {
 
 # Subnet Group for ElastiCache Redis
 resource "aws_elasticache_subnet_group" "abz_homework_redis_subnet_group" {
-  name = "abz-homework-redis-subnet-group"
-  subnet_ids = [
-    aws_subnet.abz_homework_private_subnet_1.id,
-    aws_subnet.abz_homework_private_subnet_2.id
-  ]
+  name       = "abz-homework-redis-subnet-group"
+  subnet_ids = [for subnet in aws_subnet.abz_homework_private_subnets : subnet.id]
   tags = {
     Name = "abz-homework-redis-subnet-group"
   }
